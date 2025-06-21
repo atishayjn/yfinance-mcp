@@ -1,41 +1,29 @@
-# Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS uv
-
-# Install the project into /app
+# builder stage
+FROM ghcr.io/astral-sh/uv:0.5-python3.11-bookworm-slim AS builder
 WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
-
-# Copy from the cache instead of linking since it's a mounted volume
-ENV UV_LINK_MODE=copy
-
-# Copy project files
-COPY pyproject.toml .
-
-# Install the project's dependencies using uv
+# Install deps
+COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -e .
+    uv sync --frozen --no-install-project --no-dev
 
-# Copy the rest of the application code
+# Install project
 COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev
 
-# Second stage: runtime image
+# runtime stage
 FROM python:3.11-slim
-
 WORKDIR /app
+COPY --from=builder /app /app
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Copy the virtual environment from the uv stage
-COPY --from=uv /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=uv /usr/local/bin /usr/local/bin
+EXPOSE 8000
+RUN useradd -m appuser
+USER appuser
 
-# Copy application code
-COPY . .
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
-
-# Command to run the MCP server
 CMD ["uv", "run", "server.py"]
