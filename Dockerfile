@@ -26,7 +26,10 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8000
-RUN useradd -m appuser
+
+RUN useradd -m appuser \
+ && chown -R appuser:appuser /app
+
 USER appuser
 
 CMD ["uv", "run", "server.py"]
