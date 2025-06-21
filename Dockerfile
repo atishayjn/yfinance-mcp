@@ -1,4 +1,3 @@
-# builder stage
 FROM ghcr.io/astral-sh/uv:0.5-python3.11-bookworm-slim AS builder
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
@@ -17,6 +16,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # runtime stage
 FROM python:3.11-slim
 WORKDIR /app
+
+# Install uv in runtime stage
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
 COPY --from=builder /app /app
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
